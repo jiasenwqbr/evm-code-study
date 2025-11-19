@@ -212,6 +212,7 @@ var (
 
 var app = flags.NewApp("the go-ethereum command line interface")
 
+// init() 在程序启动时自动执行
 func init() {
 	// Initialize the CLI app and start Geth
 	app.Action = geth
@@ -255,7 +256,7 @@ func init() {
 		app.Commands = append(app.Commands, logTestCommand)
 	}
 	sort.Sort(cli.CommandsByName(app.Commands))
-
+	// 拼好所有 Flags 并允许用环境变量覆盖
 	app.Flags = slices.Concat(
 		nodeFlags,
 		rpcFlags,
@@ -263,11 +264,13 @@ func init() {
 		debug.Flags,
 		metricsFlags,
 	)
+	// 支持 GETH_ 前缀的环境变量
 	flags.AutoEnvVars(app.Flags, "GETH")
-
+	// 运行前置钩子 app.Before
 	app.Before = func(ctx *cli.Context) error {
-		maxprocs.Set() // Automatically set GOMAXPROCS to match Linux container CPU quota.
+		maxprocs.Set() // Automatically set GOMAXPROCS to match Linux container CPU quota. 按容器 CPU 配额自动设置 GOMAXPROCS。
 		flags.MigrateGlobalFlags(ctx)
+		// 初始化调试/日志系统（支持 --log.debug、--backtrace 等）。
 		if err := debug.Setup(ctx); err != nil {
 			return err
 		}

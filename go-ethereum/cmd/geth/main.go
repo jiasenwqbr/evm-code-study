@@ -214,7 +214,7 @@ var app = flags.NewApp("the go-ethereum command line interface")
 
 // init() 在程序启动时自动执行
 func init() {
-	// Initialize the CLI app and start Geth
+	// Initialize the CLI app
 	app.Action = geth
 	// 把 genesis 初始化、数据导入导出、控制台、账户管理、快照、verkle 等命令都挂上去。
 	app.Commands = []*cli.Command{
@@ -266,7 +266,7 @@ func init() {
 	)
 	// 支持 GETH_ 前缀的环境变量
 	flags.AutoEnvVars(app.Flags, "GETH")
-	// 运行前置钩子 app.Before
+	// 设置前置钩子 app.Before
 	app.Before = func(ctx *cli.Context) error {
 		maxprocs.Set() // Automatically set GOMAXPROCS to match Linux container CPU quota. 按容器 CPU 配额自动设置 GOMAXPROCS。
 		flags.MigrateGlobalFlags(ctx)
@@ -361,6 +361,8 @@ func geth(ctx *cli.Context) error {
 // it starts the RPC/IPC interfaces and the miner.
 func startNode(ctx *cli.Context, stack *node.Node, isConsole bool) {
 	// Start up the node itself
+	// 1. 启动节点核心服务。`utils.StartNode` 会依次启动节点生命周期管理的所有服务，包括P2P网络、区块链同步、交易池等，最后开启RPC/IPC端点。
+	// 1. Start the core node services. `utils.StartNode` sequentially starts all services managed by the node's lifecycle, including P2P network, blockchain sync, transaction pool, etc., and finally opens RPC/IPC endpoints.
 	utils.StartNode(ctx, stack, isConsole)
 
 	if ctx.IsSet(utils.UnlockedAccountFlag.Name) {
@@ -368,7 +370,11 @@ func startNode(ctx *cli.Context, stack *node.Node, isConsole bool) {
 	}
 
 	// Register wallet event handlers to open and auto-derive wallets
-	events := make(chan accounts.WalletEvent, 16)
+	// 2. 钱包事件处理系统。**设计模式：观察者模式(Observer Pattern)**。
+	// 账户管理器(`AccountManager`)作为被观察者(Subject)，`startNode` 作为观察者(Observer)订阅事件。
+	// 2. Wallet event handling system. **Design Pattern: Observer Pattern**.
+	// The account manager (`AccountManager`) acts as the Subject, and `startNode` acts as an Observer subscribing to events.
+	events := make(chan accounts.WalletEvent, 16) // 创建带缓冲的事件通道。缓冲可以减少极端情况下的阻塞。Create a buffered event channel. Buffering can reduce blocking in extreme cases.
 	stack.AccountManager().Subscribe(events)
 
 	// Create a client to interact with local geth node.

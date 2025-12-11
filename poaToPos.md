@@ -564,7 +564,7 @@ cp -r nodes nodes_backup_$(date +%F)
     **公式**：`目标 TTD = 当前总难度 + (预留区块数 * 2)`
 
     *示例*：
-    当前难度 `15,000,000`。
+    当前难度 `15,000,000`。329248
     预留 3000 个块（约 1.5 小时）。
     目标 TTD = `15,000,000 + (3000 * 2)` = `15,006,000`。
 
@@ -611,6 +611,11 @@ docker run --rm -v $(pwd)/consensus:/consensus \
   --num-accounts=3
 
 # 此时 consensus/prysm-wallet 下会有 direct/accounts 目录
+
+git clone https://github.com/ethereum/staking-deposit-cli.git
+cd staking-deposit-cli
+pip install -r requirements.txt
+python deposit.py new-mnemonic --num_validators 3 --chain mainnet
 ```
 
 #### 3\. 生成 Beacon Chain 创世文件 (genesis.ssz)
@@ -895,3 +900,6 @@ services:
     这样可以确保 Geth 准备好处理 Prysm (Deneb) 发来的 Blob 相关的 payload。
 
 这个方案能最大程度保证你的数据安全，因为我们完全复用了现有的 `data` 目录，只是改变了它的运行逻辑。祝迁移顺利！
+
+
+## 居家节点搭建

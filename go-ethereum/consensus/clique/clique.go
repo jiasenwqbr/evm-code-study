@@ -21,6 +21,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"github.com/holiman/uint256"
 	"io"
 	"math/big"
 	"math/rand"
@@ -178,6 +179,9 @@ type Clique struct {
 
 	// The fields below are for testing only
 	fakeDiff bool // Skip difficulty verifications
+
+	// 新增
+	rewardSnapshots map[common.Address]*RewardSnapshot
 }
 
 // New creates a Clique proof-of-authority consensus engine with the initial
@@ -575,6 +579,35 @@ func (c *Clique) Prepare(chain consensus.ChainHeaderReader, header *types.Header
 // consensus rules in clique, do nothing here.
 func (c *Clique) Finalize(chain consensus.ChainHeaderReader, header *types.Header, state vm.StateDB, body *types.Body) {
 	// No block rewards in PoA, so the state remains as is
+	signer, _ := c.Author(header)
+
+	total := uint256.NewInt(1e18)
+
+	snap, ok := c.rewardSnapshots[signer]
+	if !ok {
+		state.AddBalance(signer, total, 0)
+
+	} else {
+		var sum uint64
+		for _, w := range snap.Weights {
+			sum += w
+		}
+
+		remain := new(uint256.Int).Set(total)
+		for i, r := range snap.Receivers {
+			part := new(uint256.Int).Mul(
+				total,
+				uint256.NewInt(snap.Weights[i]),
+			)
+			part.Div(part, uint256.NewInt(sum))
+			state.AddBalance(r, part, 0)
+			remain.Sub(remain, part)
+		}
+
+		if !remain.IsZero() {
+			state.AddBalance(signer, remain, 0)
+		}
+	}
 }
 
 // FinalizeAndAssemble implements consensus.Engine, ensuring no uncles are set,
